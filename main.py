@@ -2,10 +2,6 @@ import tkinter as tk
 from tkinter import simpledialog, messagebox
 
 
-<<<<<<< HEAD
-=======
-
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
 class DraggableLabel(tk.Label):
     """A label that can be dragged with the mouse."""
 
@@ -19,33 +15,27 @@ class DraggableLabel(tk.Label):
         self._is_dragging = False
 
     def on_start(self, event):
-<<<<<<< HEAD
         self._drag_data["x"] = event.x
         self._drag_data["y"] = event.y
-=======
         """Begin dragging the label."""
         # Offset of mouse pointer inside the widget
         self._drag_data["x"] = event.x_root - self.winfo_rootx()
         self._drag_data["y"] = event.y_root - self.winfo_rooty()
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
         self._is_dragging = True
         self.lift()
 
     def on_drag(self, event):
-<<<<<<< HEAD
         if not self._is_dragging:
             return
         x = self.winfo_x() - self._drag_data["x"] + event.x
         y = self.winfo_y() - self._drag_data["y"] + event.y
         self.place(x=x, y=y)
-=======
         """Handle the label being dragged."""
         if not self._is_dragging:
             return
         new_x = event.x_root - self._drag_data["x"]
         new_y = event.y_root - self._drag_data["y"]
         self.place(in_=self.master, x=new_x, y=new_y)
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
 
     def on_drop(self, event):
         self._is_dragging = False
@@ -86,11 +76,10 @@ class AddClientDialog(tk.Toplevel):
         self.protocol("WM_DELETE_WINDOW", self.destroy)
 
     def _submit(self):
-<<<<<<< HEAD
         data = {
             "name": self.name_var.get().strip(),
             "gender": self.gender_var.get().strip(),
-=======
+        }
         name = self.name_var.get().strip()
         gender = self.gender_var.get().strip()
         if not name or not gender:
@@ -102,7 +91,6 @@ class AddClientDialog(tk.Toplevel):
         data = {
             "name": name,
             "gender": gender,
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
             "checks": self.checks_var.get(),
             "contacts": self.contacts_var.get().strip(),
         }
@@ -149,15 +137,12 @@ class CrisisCenterApp(tk.Tk):
             frame = tk.Frame(location_frame, width=200, height=150, bd=2, relief="groove")
             frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
             label = tk.Label(frame, text=loc)
-<<<<<<< HEAD
             label.pack(side=tk.TOP)
             self.location_frames[loc] = frame
-=======
             label.pack(side=tk.TOP, anchor="w")
             holder = tk.Frame(frame)
             holder.pack(fill=tk.BOTH, expand=True)
             self.location_frames[loc] = holder
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
             self.location_contents[loc] = []
 
         for c in range(cols):
@@ -175,14 +160,12 @@ class CrisisCenterApp(tk.Tk):
 
     def add_client(self, data):
         name = data.get("name", "").strip()
-<<<<<<< HEAD
         if not name:
             messagebox.showwarning("Input Error", "Client name cannot be empty")
             return
         label = DraggableLabel(self, name)
         label.current_location = None
         label.place(in_=self.client_area, x=10, y=30 * len(self.clients))
-=======
         gender = data.get("gender", "").strip()
         if not name or not gender:
             messagebox.showwarning(
@@ -192,7 +175,6 @@ class CrisisCenterApp(tk.Tk):
         label = DraggableLabel(self, name)
         label.current_location = None
         label.place(in_=self.client_area, x=5, y=30 * len(self.clients))
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
         client_info = {
             "label": label,
             "gender": data.get("gender", ""),
@@ -227,22 +209,16 @@ class CrisisCenterApp(tk.Tk):
         frame = self.location_frames[location]
         widget.current_location = location
         self.location_contents[location].append(widget)
-<<<<<<< HEAD
         widget.place(in_=frame, x=10, y=20 * (len(self.location_contents[location]) - 1))
-=======
         widget.place(in_=frame, x=5, y=20 * (len(self.location_contents[location]) - 1))
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
         self.log(f"{widget.text}'s location is {location}")
 
     def _refresh_location(self, location):
         """Reposition widgets in a location after changes."""
         frame = self.location_frames[location]
         for i, w in enumerate(self.location_contents[location]):
-<<<<<<< HEAD
             w.place(in_=frame, x=10, y=20 * i)
-=======
             w.place(in_=frame, x=5, y=20 * i)
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
 
     def _refresh_client_area(self, widget=None):
         """Reposition widgets with no location in the client area."""
@@ -250,11 +226,8 @@ class CrisisCenterApp(tk.Tk):
         if widget and widget not in unplaced:
             unplaced.append(widget)
         for i, w in enumerate(unplaced):
-<<<<<<< HEAD
             w.place(in_=self.client_area, x=10, y=30 * i)
-=======
             w.place(in_=self.client_area, x=5, y=30 * i)
->>>>>>> m25zzj-codex/create-python-logging-app-with-drag-and-drop
 
     def log(self, message):
         self.log_text.configure(state="normal")
