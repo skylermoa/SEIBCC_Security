@@ -1,11 +1,19 @@
+import os
+import json
 import tkinter as tk
 from tkinter import messagebox
 from tkinter import ttk
-from datetime import datetime
+from datetime import datetime, timedelta
 
 MIN_ROOM_WIDTH = 150
 MIN_ROOM_HEIGHT = 120
-MIN_LOG_HEIGHT = 120
+MIN_LOG_HEIGHT = 180
+# Extra padding around buttons for easier interaction
+BUTTON_PADX = 12
+BUTTON_PADY = 8
+
+CLIENTS_FILE = "clients.json"
+LOG_DIR = "logs"
 
 PROPERTY_KEYS = ["Tray", "Medical", "Bin", "Sharps", "Hot Room"]
 
@@ -98,8 +106,8 @@ class AddClientDialog(tk.Toplevel):
 
         button_frame = tk.Frame(self)
         button_frame.grid(row=2, column=0, columnspan=2, pady=10)
-        tk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=5)
-        tk.Button(button_frame, text="Add", command=self._submit).pack(side=tk.RIGHT)
+        tk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
+        tk.Button(button_frame, text="Add", command=self._submit).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
 
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -143,13 +151,15 @@ class EventDialog(tk.Toplevel):
         ).grid(row=0, column=1, padx=5, pady=5)
 
         tk.Label(self, text="Comments:").grid(row=1, column=0, sticky="ne", padx=5, pady=5)
-        self.comment_text = tk.Text(self, width=25, height=6)
-        self.comment_text.grid(row=1, column=1, padx=5, pady=5)
+        self.comment_text = tk.Text(self, width=25, height=6, wrap="word")
+        self.comment_text.grid(row=1, column=1, padx=5, pady=5, sticky="nsew")
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(1, weight=1)
 
         button_frame = tk.Frame(self)
         button_frame.grid(row=2, column=0, columnspan=2, pady=10)
-        tk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=5)
-        tk.Button(button_frame, text="Add", command=self._submit).pack(side=tk.RIGHT)
+        tk.Button(button_frame, text="Cancel", command=self.destroy).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
+        tk.Button(button_frame, text="Add", command=self._submit).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
 
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self.destroy)
@@ -182,8 +192,8 @@ class ReturnTimeDialog(tk.Toplevel):
 
         btn_frame = tk.Frame(self)
         btn_frame.grid(row=1, column=0, columnspan=2, pady=10)
-        tk.Button(btn_frame, text="Cancel", command=self._cancel).pack(side=tk.RIGHT, padx=5)
-        tk.Button(btn_frame, text="OK", command=self._ok).pack(side=tk.RIGHT)
+        tk.Button(btn_frame, text="Cancel", command=self._cancel).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
+        tk.Button(btn_frame, text="OK", command=self._ok).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
 
         self.grab_set()
         self.protocol("WM_DELETE_WINDOW", self._cancel)
@@ -212,6 +222,8 @@ class ClientInfoDialog(tk.Toplevel):
         self.gender_var = tk.StringVar(value=info.get("gender", ""))
         self.bed_var = tk.StringVar(value=info.get("bed", ""))
         self.checks_var = tk.BooleanVar(value=info.get("checks", False))
+        default_wakeup = info.get("wakeup_time") if info.get("wakeup_time") else "None"
+        self.wakeup_var = tk.StringVar(value=default_wakeup)
         self.return_time = info.get("return_time")
         self.property_vars = {
             k: tk.BooleanVar(value=info.get("property", {}).get(k, False))
@@ -238,12 +250,34 @@ class ClientInfoDialog(tk.Toplevel):
         tk.Entry(self, textvariable=self.bed_var, width=entry_width).grid(row=row, column=1, padx=5, pady=5)
         row += 1
 
-        tk.Checkbutton(self, text="15-minute checks", variable=self.checks_var).grid(row=row, columnspan=2, sticky="w", padx=5, pady=5)
+        check_frame = tk.Frame(self)
+        check_frame.grid(row=row, column=0, columnspan=2, sticky="w")
+        tk.Checkbutton(check_frame, text="15-minute checks", variable=self.checks_var).pack(side=tk.LEFT, padx=5, pady=5)
+        tk.Label(check_frame, text="Wakeup Time:").pack(side=tk.LEFT, padx=5, pady=5)
+        times = ["None"] + [f"{h:02}:{m:02}" for h in range(24) for m in (0, 30)]
+        ttk.Combobox(
+            check_frame,
+            textvariable=self.wakeup_var,
+            values=times,
+            state="readonly",
+            width=entry_width - 2,
+        ).pack(side=tk.LEFT, padx=5, pady=5)
         row += 1
 
-        tk.Label(self, text="Approved Contacts:").grid(row=row, column=0, sticky="e", padx=5, pady=5)
-        self.contacts_text = tk.Text(self, height=4, width=20)
-        self.contacts_text.grid(row=row, column=1, padx=5, pady=5)
+        tk.Label(self, text="Approved Contacts:").grid(row=row, column=0, sticky="ne", padx=5, pady=5)
+        contacts_frame = tk.Frame(self)
+        contacts_frame.grid(row=row, column=1, padx=5, pady=5, sticky="w")
+        scroll = tk.Scrollbar(contacts_frame, orient="vertical")
+        self.contacts_text = tk.Text(
+            contacts_frame,
+            height=4,
+            width=20,
+            wrap="word",
+            yscrollcommand=scroll.set,
+        )
+        scroll.config(command=self.contacts_text.yview)
+        self.contacts_text.pack(side=tk.LEFT, fill=tk.BOTH)
+        scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.contacts_text.insert("1.0", info.get("contacts", ""))
         row += 1
 
@@ -269,9 +303,9 @@ class ClientInfoDialog(tk.Toplevel):
 
         button_frame = tk.Frame(self)
         button_frame.grid(row=row, column=0, columnspan=2, pady=10)
-        tk.Button(button_frame, text="Close", command=self.destroy).pack(side=tk.RIGHT, padx=5)
-        tk.Button(button_frame, text="Save", command=self._save).pack(side=tk.RIGHT, padx=5)
-        tk.Button(button_frame, text="Discharge", fg="white", bg="red", command=self._discharge).pack(side=tk.LEFT)
+        tk.Button(button_frame, text="Close", command=self.destroy).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
+        tk.Button(button_frame, text="Save", command=self._save).pack(side=tk.RIGHT, padx=BUTTON_PADX, pady=BUTTON_PADY)
+        tk.Button(button_frame, text="Discharge", fg="white", bg="red", command=self._discharge).pack(side=tk.LEFT, padx=BUTTON_PADX, pady=BUTTON_PADY)
 
         self.grab_set()
 
@@ -282,6 +316,7 @@ class ClientInfoDialog(tk.Toplevel):
             "bed": self.bed_var.get().strip(),
             "checks": self.checks_var.get(),
             "contacts": self.contacts_text.get("1.0", tk.END).strip(),
+            "wakeup_time": None if self.wakeup_var.get() == "None" else self.wakeup_var.get(),
             "property": {k: var.get() for k, var in self.property_vars.items()},
         }
         if hasattr(self, "return_var"):
@@ -332,19 +367,18 @@ class CrisisCenterApp(tk.Tk):
                 canvas.configure(width=MIN_ROOM_WIDTH, height=MIN_ROOM_HEIGHT)
 
     def _build_ui(self):
+        self.grid_rowconfigure(1, weight=1)
+        self.grid_columnconfigure(0, weight=1)
+
         # Client controls
         control_frame = tk.Frame(self)
-        control_frame.pack(fill=tk.X, pady=5)
-        tk.Button(control_frame, text="Add Client", command=self.show_add_dialog).pack(side=tk.LEFT, padx=5)
-        tk.Button(control_frame, text="Event", command=self.show_event_dialog).pack(side=tk.LEFT, padx=5)
+        control_frame.grid(row=0, column=0, sticky="ew", pady=5)
+        tk.Button(control_frame, text="Add Client", command=self.show_add_dialog).pack(side=tk.LEFT, padx=BUTTON_PADX, pady=BUTTON_PADY)
+        tk.Button(control_frame, text="Event", command=self.show_event_dialog).pack(side=tk.LEFT, padx=BUTTON_PADX, pady=BUTTON_PADY)
 
-        # Main frames
-        main_frame = tk.Frame(self)
-        main_frame.pack(fill=tk.BOTH, expand=True)
-        self.client_area = tk.Frame(main_frame, width=200, bg="lightgrey")
-        self.client_area.pack(side=tk.LEFT, fill=tk.Y)
-        location_frame = tk.Frame(main_frame)
-        location_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        # Location grid
+        location_frame = tk.Frame(self)
+        location_frame.grid(row=1, column=0, sticky="nsew")
 
         self.location_frames = {}
         self.location_canvases = {}
@@ -360,7 +394,7 @@ class CrisisCenterApp(tk.Tk):
             col = i % cols
             frame = tk.Frame(location_frame, bd=2, relief="groove")
             frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
-            label = tk.Label(frame, text=loc)
+            label = tk.Label(frame, text=loc, font=("TkDefaultFont", 12, "bold"))
             label.pack(side=tk.TOP, anchor="w")
 
             canvas = tk.Canvas(frame)
@@ -384,13 +418,17 @@ class CrisisCenterApp(tk.Tk):
 
         # Log area with scrollbar
         log_frame = tk.Frame(self, height=MIN_LOG_HEIGHT)
-        log_frame.pack(fill=tk.BOTH, pady=5)
-        log_frame.pack_propagate(False)
-        self.log_text = tk.Text(log_frame, height=10, state="disabled")
+        log_frame.grid(row=2, column=0, sticky="nsew", pady=5)
+        log_frame.grid_propagate(False)
+        self.grid_rowconfigure(2, weight=0, minsize=MIN_LOG_HEIGHT)
+        self.log_text = tk.Text(log_frame, height=10, state="disabled", wrap="word")
         self.log_text.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         log_scroll = tk.Scrollbar(log_frame, command=self.log_text.yview)
         log_scroll.pack(side=tk.RIGHT, fill=tk.Y)
         self.log_text.configure(yscrollcommand=log_scroll.set)
+
+        self.load_clients()
+        self.load_logs()
 
     def show_add_dialog(self):
         """Open the dialog to add a new client."""
@@ -410,7 +448,6 @@ class CrisisCenterApp(tk.Tk):
             return
         label = DraggableLabel(self, name)
         label.current_location = None
-        label.place(in_=self.client_area, x=5, y=self.label_spacing * len(self.clients))
         client_info = {
             "name": name,
             "label": label,
@@ -420,10 +457,12 @@ class CrisisCenterApp(tk.Tk):
             "contacts": "",
             "property": {k: False for k in PROPERTY_KEYS},
             "return_time": None,
+            "wakeup_time": None,
         }
         self.clients.append(client_info)
-        self._refresh_client_area()
+        self._move_to_location(label, "Group Room")
         self.log(f"INTAKE {name}")
+        self.save_clients()
 
     def add_event(self, ev_type, comments):
         """Log an event from the event dialog."""
@@ -444,7 +483,6 @@ class CrisisCenterApp(tk.Tk):
             self._refresh_location(loc)
         else:
             widget.drag_origin = None
-            self._refresh_client_area(exclude=widget)
 
     def on_drop(self, widget, event):
         # Check if dropped in a defined location
@@ -457,13 +495,9 @@ class CrisisCenterApp(tk.Tk):
 
         # Not dropped on a location - snap back to previous position
         origin = getattr(widget, "drag_origin", None)
-        if origin:
-            self._move_to_location(widget, origin)
-        else:
-            widget.current_location = None
-            self._refresh_client_area()
+        self._move_to_location(widget, origin or "Group Room")
 
-    def _move_to_location(self, widget, location):
+    def _move_to_location(self, widget, location, log_move=True):
         """Place widget into the given location frame."""
         prev_location = getattr(widget, "current_location", None)
         origin = getattr(widget, "drag_origin", prev_location)
@@ -486,9 +520,9 @@ class CrisisCenterApp(tk.Tk):
             self.wait_window(dlg)
             if dlg.result is None:
                 if prev_location:
-                    self._refresh_location(prev_location)
+                    self._move_to_location(widget, prev_location, log_move=False)
                 else:
-                    self._refresh_client_area()
+                    self._move_to_location(widget, "Group Room", log_move=False)
                 return
             if client is not None:
                 client["return_time"] = dlg.result
@@ -507,10 +541,14 @@ class CrisisCenterApp(tk.Tk):
         window_id = canvas.create_window(0, 0, window=widget, anchor="nw")
         self.label_windows[widget] = window_id
         self._refresh_location(location)
-        if location == "Away from Center" and client is not None:
-            self.log(f"{widget.text}'s location is {location} (return {client['return_time']})")
-        else:
-            self.log(f"{widget.text}'s location is {location}")
+        if log_move:
+            if location == "Away from Center" and client is not None:
+                self.log(
+                    f"{widget.text}'s location is {location} (return {client['return_time']})"
+                )
+            else:
+                self.log(f"{widget.text}'s location is {location}")
+        self.save_clients()
 
     def _refresh_location(self, location):
         """Reposition widgets in a location after changes."""
@@ -525,14 +563,6 @@ class CrisisCenterApp(tk.Tk):
             y = self.label_spacing * row
             canvas.coords(self.label_windows[w], x, y)
         self._update_scrollregion(location)
-
-    def _refresh_client_area(self, exclude=None):
-        """Reposition widgets with no location in the client area."""
-        unplaced = [c["label"] for c in self.clients if c["label"].current_location is None]
-        if exclude and exclude in unplaced:
-            unplaced.remove(exclude)
-        for i, w in enumerate(unplaced):
-            w.place(in_=self.client_area, x=5, y=self.label_spacing * i)
 
     def _find_client(self, widget):
         """Return the client dictionary for a label widget."""
@@ -562,7 +592,7 @@ class CrisisCenterApp(tk.Tk):
             changes.append(f"name from {client['name']} to {new_data['name']}")
             client["label"].config(text=new_data["name"])
             client["label"].text = new_data["name"]
-        for key in ["gender", "bed", "checks", "contacts", "return_time"]:
+        for key in ["gender", "bed", "checks", "contacts", "return_time", "wakeup_time"]:
             if client.get(key) != new_data.get(key):
                 changes.append(f"{key} changed")
         if "property" in new_data:
@@ -572,7 +602,7 @@ class CrisisCenterApp(tk.Tk):
         client.update(new_data)
         if changes:
             self.log(f"Updated {client['name']}'s info: " + "; ".join(changes))
-        self._refresh_client_area()
+        self.save_clients()
 
     def discharge_client(self, client):
         """Remove a client from the system."""
@@ -583,12 +613,92 @@ class CrisisCenterApp(tk.Tk):
         label.destroy()
         self.clients.remove(client)
         self.log(f"DISCHARGE {client['name']}")
-        self._refresh_client_area()
+        self.save_clients()
 
     def log(self, message):
-        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        timestamp = datetime.now()
+        ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
         self.log_text.configure(state="normal")
-        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+        self.log_text.insert(tk.END, f"[{ts_str}] {message}\n")
+        self.log_text.configure(state="disabled")
+        self.log_text.see(tk.END)
+        self._save_log_entry(timestamp, message)
+
+    def _save_log_entry(self, timestamp, message):
+        """Append a log entry to the daily log file."""
+        year = timestamp.strftime("%Y")
+        month = timestamp.strftime("%m")
+        day = timestamp.strftime("%Y-%m-%d")
+        dir_path = os.path.join(LOG_DIR, year, month)
+        os.makedirs(dir_path, exist_ok=True)
+        path = os.path.join(dir_path, f"{day}.txt")
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(f"[{timestamp.strftime('%Y-%m-%d %H:%M:%S')}] {message}\n")
+
+    def save_clients(self):
+        """Save client information to a JSON file."""
+        data = []
+        for c in self.clients:
+            entry = {
+                k: v
+                for k, v in c.items()
+                if k != "label"
+            }
+            entry["location"] = c["label"].current_location
+            data.append(entry)
+        with open(CLIENTS_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+
+    def load_clients(self):
+        """Load clients from the JSON file if it exists."""
+        if not os.path.exists(CLIENTS_FILE):
+            return
+        try:
+            with open(CLIENTS_FILE, "r", encoding="utf-8") as f:
+                data = json.load(f)
+        except Exception:
+            return
+        for info in data:
+            label = DraggableLabel(self, info.get("name", ""))
+            label.current_location = None
+            client = {
+                "name": info.get("name", ""),
+                "label": label,
+                "gender": info.get("gender", ""),
+                "bed": info.get("bed", ""),
+                "checks": info.get("checks", False),
+                "contacts": info.get("contacts", ""),
+                "property": info.get("property", {k: False for k in PROPERTY_KEYS}),
+                "return_time": info.get("return_time"),
+                "wakeup_time": info.get("wakeup_time"),
+            }
+            self.clients.append(client)
+            location = info.get("location", "Group Room")
+            self._move_to_location(label, location, log_move=False)
+
+    def load_logs(self):
+        """Load log entries from the last 24 hours into the log widget."""
+        cutoff = datetime.now() - timedelta(hours=24)
+        self.log_text.configure(state="normal")
+        self.log_text.delete("1.0", tk.END)
+        dates = {cutoff.date(), datetime.now().date()}
+        for d in sorted(dates):
+            path = os.path.join(
+                LOG_DIR,
+                d.strftime("%Y"),
+                d.strftime("%m"),
+                f"{d.strftime('%Y-%m-%d')}.txt",
+            )
+            if os.path.exists(path):
+                with open(path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        try:
+                            ts_str = line.split("]", 1)[0].strip("[")
+                            ts = datetime.strptime(ts_str, "%Y-%m-%d %H:%M:%S")
+                        except Exception:
+                            continue
+                        if ts >= cutoff:
+                            self.log_text.insert(tk.END, line)
         self.log_text.configure(state="disabled")
         self.log_text.see(tk.END)
 

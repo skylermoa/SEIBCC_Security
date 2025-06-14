@@ -1,0 +1,19 @@
+[
+  {
+    "name": "Skyler Moa",
+    "gender": "Male",
+    "bed": "",
+    "checks": false,
+    "contacts": "",
+    "property": {
+      "Tray": false,
+      "Medical": false,
+      "Bin": false,
+      "Sharps": false,
+      "Hot Room": false
+    },
+    "return_time": null,
+    "wakeup_time": null,
+    "location": "Group Room"
+  }
+]
