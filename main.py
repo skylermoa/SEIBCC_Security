@@ -80,9 +80,17 @@ class CrisisCenterApp(tk.Tk):
     def __init__(self):
         super().__init__()
         self.title("Crisis Center")
-        self.geometry("800x600")
+        self.geometry("900x600")
         self.clients = []
-        self.locations = ["Lobby", "Counseling Room", "Exit"]
+        self.locations = [
+            "Group Room",
+            "Asleep",
+            "Medical",
+            "Case Manager",
+            "Patio",
+            "Away from Center",
+        ]
+        self.location_contents = {}
         self._build_ui()
 
     def _build_ui(self):
@@ -94,18 +102,27 @@ class CrisisCenterApp(tk.Tk):
         # Main frames
         main_frame = tk.Frame(self)
         main_frame.pack(fill=tk.BOTH, expand=True)
-        self.client_area = tk.Canvas(main_frame, width=200, bg="lightgrey")
+        self.client_area = tk.Frame(main_frame, width=200, bg="lightgrey")
         self.client_area.pack(side=tk.LEFT, fill=tk.Y)
         location_frame = tk.Frame(main_frame)
         location_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
         self.location_frames = {}
-        for loc in self.locations:
+        rows, cols = 2, 3
+        for i, loc in enumerate(self.locations):
+            row = i // cols
+            col = i % cols
             frame = tk.Frame(location_frame, width=200, height=150, bd=2, relief="groove")
-            frame.pack(padx=20, pady=10, fill=tk.BOTH, expand=True)
+            frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
             label = tk.Label(frame, text=loc)
             label.pack(side=tk.TOP)
             self.location_frames[loc] = frame
+            self.location_contents[loc] = []
+
+        for c in range(cols):
+            location_frame.grid_columnconfigure(c, weight=1)
+        for r in range(rows):
+            location_frame.grid_rowconfigure(r, weight=1)
 
         # Log area
         self.log_text = tk.Text(self, height=10, state="disabled")
@@ -120,8 +137,9 @@ class CrisisCenterApp(tk.Tk):
         if not name:
             messagebox.showwarning("Input Error", "Client name cannot be empty")
             return
-        label = DraggableLabel(self.client_area, name)
-        label.place(x=10, y=30 * len(self.clients))
+        label = DraggableLabel(self, name)
+        label.current_location = None
+        label.place(in_=self.client_area, x=10, y=30 * len(self.clients))
         client_info = {
             "label": label,
             "gender": data.get("gender", ""),
@@ -129,15 +147,49 @@ class CrisisCenterApp(tk.Tk):
             "contacts": data.get("contacts", ""),
         }
         self.clients.append(client_info)
+        self._refresh_client_area()
 
     def on_drop(self, widget, event):
-        # Check if dropped in location
+        # Check if dropped in a defined location
         for location, frame in self.location_frames.items():
             x1, y1 = frame.winfo_rootx(), frame.winfo_rooty()
             x2, y2 = x1 + frame.winfo_width(), y1 + frame.winfo_height()
             if x1 <= event.x_root <= x2 and y1 <= event.y_root <= y2:
-                self.log(f"{widget.text}'s location is {location}")
+                self._move_to_location(widget, location)
                 return
+
+        # Not dropped on a location - return to client area
+        if getattr(widget, "current_location", None):
+            self.location_contents[widget.current_location].remove(widget)
+            self._refresh_location(widget.current_location)
+            widget.current_location = None
+        self._refresh_client_area(widget)
+
+    def _move_to_location(self, widget, location):
+        """Place widget into the given location frame."""
+        if getattr(widget, "current_location", None):
+            self.location_contents[widget.current_location].remove(widget)
+            self._refresh_location(widget.current_location)
+
+        frame = self.location_frames[location]
+        widget.current_location = location
+        self.location_contents[location].append(widget)
+        widget.place(in_=frame, x=10, y=20 * (len(self.location_contents[location]) - 1))
+        self.log(f"{widget.text}'s location is {location}")
+
+    def _refresh_location(self, location):
+        """Reposition widgets in a location after changes."""
+        frame = self.location_frames[location]
+        for i, w in enumerate(self.location_contents[location]):
+            w.place(in_=frame, x=10, y=20 * i)
+
+    def _refresh_client_area(self, widget=None):
+        """Reposition widgets with no location in the client area."""
+        unplaced = [c["label"] for c in self.clients if c["label"].current_location is None]
+        if widget and widget not in unplaced:
+            unplaced.append(widget)
+        for i, w in enumerate(unplaced):
+            w.place(in_=self.client_area, x=10, y=30 * i)
 
     def log(self, message):
         self.log_text.configure(state="normal")
