@@ -19,9 +19,9 @@ class DraggableLabel(tk.Label):
         self._drag_data["y"] = event.y
 
         """Begin dragging the label."""
-        # Offset of mouse pointer inside the widget
-        self._drag_data["x"] = event.x_root - self.winfo_rootx()
-        self._drag_data["y"] = event.y_root - self.winfo_rooty()
+        # Store the offset of the mouse inside the widget
+        self._drag_data["x"] = event.x
+        self._drag_data["y"] = event.y
         self._is_dragging = True
         self.lift()
 
@@ -36,8 +36,12 @@ class DraggableLabel(tk.Label):
         """Handle the label being dragged."""
         if not self._is_dragging:
             return
-        new_x = event.x_root - self._drag_data["x"]
-        new_y = event.y_root - self._drag_data["y"]
+        new_x = (
+            event.x_root - self.master.winfo_rootx() - self._drag_data["x"]
+        )
+        new_y = (
+            event.y_root - self.master.winfo_rooty() - self._drag_data["y"]
+        )
         self.place(in_=self.master, x=new_x, y=new_y)
 
     def on_drop(self, event):
@@ -207,9 +211,14 @@ class CrisisCenterApp(tk.Tk):
 
     def _move_to_location(self, widget, location):
         """Place widget into the given location frame."""
-        if getattr(widget, "current_location", None):
-            self.location_contents[widget.current_location].remove(widget)
-            self._refresh_location(widget.current_location)
+        prev_location = getattr(widget, "current_location", None)
+        if prev_location == location:
+            # Already here, do not log again
+            self._refresh_location(location)
+            return
+        if prev_location:
+            self.location_contents[prev_location].remove(widget)
+            self._refresh_location(prev_location)
 
         frame = self.location_frames[location]
         widget.current_location = location
