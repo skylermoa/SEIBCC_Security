@@ -38,13 +38,15 @@ class ClientInfoDialog(tk.Toplevel):
     def __init__(self, master, info):
         super().__init__(master)
         ttk.Combobox(
-            self,
+        entry_width = 20
+        tk.Entry(self, textvariable=self.name_var, width=entry_width).grid(row=0, column=1, padx=5, pady=5)
             textvariable=self.gender_var,
             values=["Male", "Female"],
             state="readonly",
+            width=entry_width - 2,
         ).grid(row=1, column=1, padx=5, pady=5)
 
-        self.contacts_text = tk.Text(self, height=4, width=20)
+        tk.Entry(self, textvariable=self.bed_var, width=entry_width).grid(row=2, column=1, padx=5, pady=5)
         self.contacts_text.grid(row=4, column=1, padx=5, pady=5)
             "contacts": self.contacts_text.get("1.0", tk.END).strip(),
     """Popup to display and edit a client's details."""
@@ -55,8 +57,9 @@ class ClientInfoDialog(tk.Toplevel):
         self.bed_var = tk.StringVar(value=info.get("bed", ""))
         self.checks_var = tk.BooleanVar(value=info.get("checks", False))
 
+        entry_width = 20
         tk.Label(self, text="Name:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
-        tk.Entry(self, textvariable=self.name_var).grid(row=0, column=1, padx=5, pady=5)
+        tk.Entry(self, textvariable=self.name_var, width=entry_width).grid(row=0, column=1, padx=5, pady=5)
 
         tk.Label(self, text="Gender:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
         ttk.Combobox(
@@ -64,10 +67,11 @@ class ClientInfoDialog(tk.Toplevel):
             textvariable=self.gender_var,
             values=["Male", "Female"],
             state="readonly",
+            width=entry_width - 2,
         ).grid(row=1, column=1, padx=5, pady=5)
 
         tk.Label(self, text="Bed Section:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
-        tk.Entry(self, textvariable=self.bed_var).grid(row=2, column=1, padx=5, pady=5)
+        tk.Entry(self, textvariable=self.bed_var, width=entry_width).grid(row=2, column=1, padx=5, pady=5)
 
         tk.Checkbutton(self, text="15-minute checks", variable=self.checks_var).grid(row=3, columnspan=2, sticky="w", padx=5, pady=5)
 
@@ -230,6 +234,7 @@ class CrisisCenterApp(tk.Tk):
             row = i // cols
             col = i % cols
             frame = tk.Frame(location_frame, width=200, height=150, bd=2, relief="groove")
+        self.log(f"INTAKE {name}")
             frame.grid(row=row, column=col, padx=10, pady=10, sticky="nsew")
             label = tk.Label(frame, text=loc)
             label.pack(side=tk.TOP)
@@ -309,7 +314,7 @@ class CrisisCenterApp(tk.Tk):
             self._refresh_location(label.current_location)
         label.destroy()
         self.clients.remove(client)
-        self.log(f"Discharged {client['name']}")
+        self.log(f"DISCHARGE {client['name']}")
         self._refresh_client_area()
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
