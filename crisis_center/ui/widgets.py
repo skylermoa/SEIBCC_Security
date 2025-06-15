@@ -24,13 +24,10 @@ class DraggableLabel(Label):
         self.bind("<B1-Motion>", self.on_drag)
         self.bind("<ButtonRelease-1>", self.on_drop)
         self.bind("<Double-Button-1>", self.on_double_click)
-        self._drag_data = {"x": 0, "y": 0}
         self._is_dragging = False
         self._mouse_down = False
 
     def on_start(self, event):
-        self._drag_data["x"] = event.x
-        self._drag_data["y"] = event.y
         self._is_dragging = False
         self._mouse_down = True
         self.lift()
@@ -42,8 +39,8 @@ class DraggableLabel(Label):
             self._is_dragging = True
             if hasattr(self.master, "start_drag"):
                 self.master.start_drag(self)
-        new_x = event.x_root - self.master.winfo_rootx() - self._drag_data["x"]
-        new_y = event.y_root - self.master.winfo_rooty() - self._drag_data["y"]
+        new_x = event.x_root - self.master.winfo_rootx() - self.winfo_width() // 2
+        new_y = event.y_root - self.master.winfo_rooty() - self.winfo_height() // 2
         self.place(in_=self.master, x=new_x, y=new_y)
 
     def on_drop(self, event):

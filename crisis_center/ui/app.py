@@ -123,14 +123,16 @@ class CrisisCenterApp(tk.Tk):
             width = self.winfo_width()
         if width >= DESKTOP_WIDTH:
             cols = 3
-        elif width >= TABLET_WIDTH:
-            cols = 2
         else:
-            cols = 1
+            cols = 2
         cols = min(cols, len(self.locations))
         if getattr(self, "_loc_cols", None) == cols:
             return
         self._loc_cols = cols
+        for r in range(len(self.locations)):
+            self.location_frame.grid_rowconfigure(r, weight=0)
+        for c in range(len(self.locations)):
+            self.location_frame.grid_columnconfigure(c, weight=0)
         rows_needed = (len(self.locations) + cols - 1) // cols
         for r in range(rows_needed):
             self.location_frame.grid_rowconfigure(r, weight=1, minsize=MIN_ROOM_HEIGHT)
@@ -254,11 +256,11 @@ class CrisisCenterApp(tk.Tk):
         for c in range(cols):
             holder.grid_columnconfigure(c, weight=1)
         for r in range(max_rows):
-            holder.grid_rowconfigure(r, weight=1)
+            holder.grid_rowconfigure(r, weight=0)
         for i, lbl in enumerate(labels):
             row = i % max_rows
             col = i // max_rows
-            lbl.grid(in_=holder, row=row, column=col, padx=2, pady=2, sticky="nsew")
+            lbl.grid(in_=holder, row=row, column=col, padx=2, pady=2, sticky="n")
 
     def _find_client(self, widget):
         return next((c for c in self.clients if c.label is widget), None)
