@@ -389,3 +389,4 @@ class ClientInfoDialog(Toplevel):
         if confirm:
             self.master.discharge_client(self.info)
             self.destroy()
+
