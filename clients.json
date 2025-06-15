@@ -10,10 +10,11 @@
       "Medical": false,
       "Bin": false,
       "Sharps": false,
-      "Hot Room": false
+      "Hot Room": false,
+      "Money": false
     },
     "return_time": null,
     "wakeup_time": null,
-    "location": "Group Room"
+    "location": "Bed"
   }
 ]
