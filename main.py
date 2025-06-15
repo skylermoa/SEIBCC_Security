@@ -1,5 +1,6 @@
 import tkinter as tk
 from tkinter import simpledialog, messagebox
+from datetime import datetime, timedelta
 
 class DraggableLabel(tk.Label):
     """A label that can be dragged with the mouse."""
@@ -10,15 +11,46 @@ class DraggableLabel(tk.Label):
         self.bind("<ButtonPress-1>", self.on_start)
         self.bind("<B1-Motion>", self.on_drag)
         self.bind("<ButtonRelease-1>", self.on_drop)
+        self.bind("<Double-Button-1>", self.on_double_click)
         self._drag_data = {"x": 0, "y": 0}
         self._is_dragging = False
 
     def on_start(self, event):
 
-        self._drag_data["x"] = event.x
-        self._drag_data["y"] = event.y
+    def on_double_click(self, event):
+        """Show client info when label is double-clicked."""
+        if hasattr(self.master, "show_client_info"):
+            self.master.show_client_info(self)
 
-        """Begin dragging the label."""
+        self.bed_var = tk.StringVar()
+        tk.Label(self, text="Bed Section:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        tk.Entry(self, textvariable=self.bed_var).grid(row=2, column=1, padx=5, pady=5)
+
+        tk.Checkbutton(self, text="15-minute checks", variable=self.checks_var).grid(row=3, columnspan=2, sticky="w", padx=5, pady=5)
+        tk.Label(self, text="Approved Contacts:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
+        tk.Entry(self, textvariable=self.contacts_var).grid(row=4, column=1, padx=5, pady=5)
+        button_frame.grid(row=5, column=0, columnspan=2, pady=10)
+            "bed": self.bed_var.get().strip(),
+class ClientInfoDialog(tk.Toplevel):
+    """Popup to display a client's details."""
+
+    def __init__(self, master, info):
+        super().__init__(master)
+        self.title(info.get("name", "Client Info"))
+        self.resizable(False, False)
+
+        tk.Label(self, text=f"Name: {info.get('name','')}").pack(anchor="w", padx=10, pady=2)
+        tk.Label(self, text=f"Gender: {info.get('gender','')}").pack(anchor="w", padx=10, pady=2)
+        tk.Label(self, text=f"Bed: {info.get('bed','')}").pack(anchor="w", padx=10, pady=2)
+        checks_text = "Yes" if info.get("checks") else "No"
+        tk.Label(self, text=f"15-minute checks: {checks_text}").pack(anchor="w", padx=10, pady=2)
+        tk.Label(self, text=f"Approved Contacts: {info.get('contacts','')}").pack(anchor="w", padx=10, pady=2)
+
+        tk.Button(self, text="Close", command=self.destroy).pack(pady=5)
+        self.grab_set()
+
+
+        self._schedule_checks()
         # Store the offset of the mouse inside the widget
         self._drag_data["x"] = event.x
         self._drag_data["y"] = event.y
@@ -138,6 +170,8 @@ class CrisisCenterApp(tk.Tk):
         location_frame = tk.Frame(main_frame)
         location_frame.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
 
+            "name": name,
+            "bed": data.get("bed", ""),
         self.location_frames = {}
         rows, cols = 2, 3
         for i, loc in enumerate(self.locations):
@@ -193,7 +227,35 @@ class CrisisCenterApp(tk.Tk):
         self.clients.append(client_info)
         self._refresh_client_area()
 
-    def on_drop(self, widget, event):
+    def show_client_info(self, label):
+        """Display client information in a popup."""
+        info = next((c for c in self.clients if c["label"] is label), None)
+        if not info:
+            return
+        ClientInfoDialog(self, info)
+
+        timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
+    def _schedule_checks(self):
+        """Schedule the next 15-minute check notifications."""
+        now = datetime.now()
+        next_minute = ((now.minute // 15) + 1) * 15
+        hour = now.hour
+        if next_minute >= 60:
+            next_minute = 0
+            hour = (hour + 1) % 24
+        next_time = now.replace(hour=hour, minute=next_minute, second=0, microsecond=0)
+        delay = (next_time - now).total_seconds() * 1000
+        self.after(int(delay), self._run_checks)
+
+    def _run_checks(self):
+        """Prompt staff to perform 15-minute checks."""
+        for client in self.clients:
+            if client.get("checks"):
+                messagebox.showinfo("15 Minute Check", f"Check on {client['name']}")
+                self.log(f"15 minute check for {client['name']} complete")
+        self._schedule_checks()
+
         # Check if dropped in a defined location
         for location, frame in self.location_frames.items():
             x1, y1 = frame.winfo_rootx(), frame.winfo_rooty()
