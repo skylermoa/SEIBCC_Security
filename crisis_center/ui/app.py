@@ -18,6 +18,8 @@ from ..constants import (
     MIN_ROOM_WIDTH,
     DESKTOP_WIDTH,
     TABLET_WIDTH,
+    APP_MIN_WIDTH,
+    APP_MIN_HEIGHT,
     MAX_LABELS_PER_COLUMN,
     PROPERTY_KEYS,
     SHOWER_TIMEOUT_MS,
@@ -39,6 +41,7 @@ class CrisisCenterApp(tk.Tk):
         super().__init__()
         self.title("Crisis Center")
         self.geometry("900x600")
+        self.minsize(APP_MIN_WIDTH, APP_MIN_HEIGHT)
         self.configure(bg=APP_BG)
         self.label_spacing = 35
         self.clients: list[Client] = []
@@ -58,6 +61,7 @@ class CrisisCenterApp(tk.Tk):
         self.bind("<Configure>", self._on_resize)
 
     def _build_ui(self):
+        self.grid_rowconfigure(1, weight=1)
         self.grid_rowconfigure(2, weight=1, minsize=MIN_LOG_HEIGHT)
         self.grid_columnconfigure(0, weight=1)
 
@@ -119,10 +123,8 @@ class CrisisCenterApp(tk.Tk):
             width = self.winfo_width()
         if width >= DESKTOP_WIDTH:
             cols = 3
-        elif width >= TABLET_WIDTH:
-            cols = 2
         else:
-            cols = 1
+            cols = 2
         cols = min(cols, len(self.locations))
         if getattr(self, "_loc_cols", None) == cols:
             return
@@ -131,13 +133,16 @@ class CrisisCenterApp(tk.Tk):
             self.location_frame.grid_rowconfigure(r, weight=0)
         for c in range(len(self.locations)):
             self.location_frame.grid_columnconfigure(c, weight=0)
+        rows_needed = (len(self.locations) + cols - 1) // cols
+        for r in range(rows_needed):
+            self.location_frame.grid_rowconfigure(r, weight=1, minsize=MIN_ROOM_HEIGHT)
+        for c in range(cols):
+            self.location_frame.grid_columnconfigure(c, weight=1, minsize=MIN_ROOM_WIDTH)
         for i, loc in enumerate(self.locations):
             row = i // cols
             col = i % cols
             frame = self.location_frames[loc]
             frame.grid(row=row, column=col, padx=10, pady=5, sticky="nsew")
-            self.location_frame.grid_rowconfigure(row, weight=0, minsize=MIN_ROOM_HEIGHT)
-            self.location_frame.grid_columnconfigure(col, weight=1, minsize=MIN_ROOM_WIDTH)
         for loc in self.locations:
             self._refresh_location(loc)
 
@@ -250,10 +255,12 @@ class CrisisCenterApp(tk.Tk):
             cols = (len(labels) + max_rows - 1) // max_rows
         for c in range(cols):
             holder.grid_columnconfigure(c, weight=1)
+        for r in range(max_rows):
+            holder.grid_rowconfigure(r, weight=0)
         for i, lbl in enumerate(labels):
             row = i % max_rows
             col = i // max_rows
-            lbl.grid(in_=holder, row=row, column=col, padx=2, pady=2)
+            lbl.grid(in_=holder, row=row, column=col, padx=2, pady=2, sticky="n")
 
     def _find_client(self, widget):
         return next((c for c in self.clients if c.label is widget), None)

@@ -10,6 +10,10 @@ DESKTOP_WIDTH = 900
 TABLET_WIDTH = 600
 MIN_LOG_HEIGHT = 180
 
+# Minimum application dimensions
+APP_MIN_WIDTH = 400
+APP_MIN_HEIGHT = MIN_ROOM_HEIGHT + MIN_LOG_HEIGHT
+
 # Colors
 APP_BG = "#2d2759"
 LOG_BG = "#ecebed"
