@@ -1,5 +1,6 @@
 import tkinter as tk
-from tkinter import simpledialog, messagebox
+from tkinter import messagebox
+from tkinter import ttk
 from datetime import datetime, timedelta
 
 class DraggableLabel(tk.Label):
@@ -36,19 +37,70 @@ class ClientInfoDialog(tk.Toplevel):
 
     def __init__(self, master, info):
         super().__init__(master)
-        self.title(info.get("name", "Client Info"))
-        self.resizable(False, False)
+        ttk.Combobox(
+            self,
+            textvariable=self.gender_var,
+            values=["Male", "Female"],
+            state="readonly",
+        ).grid(row=1, column=1, padx=5, pady=5)
 
-        tk.Label(self, text=f"Name: {info.get('name','')}").pack(anchor="w", padx=10, pady=2)
-        tk.Label(self, text=f"Gender: {info.get('gender','')}").pack(anchor="w", padx=10, pady=2)
-        tk.Label(self, text=f"Bed: {info.get('bed','')}").pack(anchor="w", padx=10, pady=2)
-        checks_text = "Yes" if info.get("checks") else "No"
-        tk.Label(self, text=f"15-minute checks: {checks_text}").pack(anchor="w", padx=10, pady=2)
-        tk.Label(self, text=f"Approved Contacts: {info.get('contacts','')}").pack(anchor="w", padx=10, pady=2)
+        self.contacts_text = tk.Text(self, height=4, width=20)
+        self.contacts_text.grid(row=4, column=1, padx=5, pady=5)
+            "contacts": self.contacts_text.get("1.0", tk.END).strip(),
+    """Popup to display and edit a client's details."""
+        self.master = master
+        self.info = info
+        self.name_var = tk.StringVar(value=info.get("name", ""))
+        self.gender_var = tk.StringVar(value=info.get("gender", ""))
+        self.bed_var = tk.StringVar(value=info.get("bed", ""))
+        self.checks_var = tk.BooleanVar(value=info.get("checks", False))
 
-        tk.Button(self, text="Close", command=self.destroy).pack(pady=5)
-        self.grab_set()
+        tk.Label(self, text="Name:").grid(row=0, column=0, sticky="e", padx=5, pady=5)
+        tk.Entry(self, textvariable=self.name_var).grid(row=0, column=1, padx=5, pady=5)
 
+        tk.Label(self, text="Gender:").grid(row=1, column=0, sticky="e", padx=5, pady=5)
+        ttk.Combobox(
+            self,
+            textvariable=self.gender_var,
+            values=["Male", "Female"],
+            state="readonly",
+        ).grid(row=1, column=1, padx=5, pady=5)
+
+        tk.Label(self, text="Bed Section:").grid(row=2, column=0, sticky="e", padx=5, pady=5)
+        tk.Entry(self, textvariable=self.bed_var).grid(row=2, column=1, padx=5, pady=5)
+
+        tk.Checkbutton(self, text="15-minute checks", variable=self.checks_var).grid(row=3, columnspan=2, sticky="w", padx=5, pady=5)
+
+        tk.Label(self, text="Approved Contacts:").grid(row=4, column=0, sticky="e", padx=5, pady=5)
+        self.contacts_text = tk.Text(self, height=4, width=20)
+        self.contacts_text.grid(row=4, column=1, padx=5, pady=5)
+        self.contacts_text.insert("1.0", info.get("contacts", ""))
+
+        button_frame = tk.Frame(self)
+        button_frame.grid(row=5, column=0, columnspan=2, pady=10)
+        tk.Button(button_frame, text="Close", command=self.destroy).pack(side=tk.RIGHT, padx=5)
+        tk.Button(button_frame, text="Save", command=self._save).pack(side=tk.RIGHT, padx=5)
+        tk.Button(button_frame, text="Discharge", fg="white", bg="red", command=self._discharge).pack(side=tk.LEFT)
+
+    def _save(self):
+        new_data = {
+            "name": self.name_var.get().strip(),
+            "gender": self.gender_var.get().strip(),
+            "bed": self.bed_var.get().strip(),
+            "checks": self.checks_var.get(),
+            "contacts": self.contacts_text.get("1.0", tk.END).strip(),
+        }
+        self.master.update_client_info(self.info, new_data)
+        self.destroy()
+
+    def _discharge(self):
+        confirm = messagebox.askyesno(
+            "Discharge",
+            "Have you gathered all client property, spoken with case management and medical, and are ready to discharge?",
+        )
+        if confirm:
+            self.master.discharge_client(self.info)
+            self.destroy()
 
         self._schedule_checks()
         # Store the offset of the mouse inside the widget
@@ -233,6 +285,32 @@ class CrisisCenterApp(tk.Tk):
         if not info:
             return
         ClientInfoDialog(self, info)
+
+    def update_client_info(self, client, new_data):
+        """Update a client's details and log any changes."""
+        changes = []
+        if client["name"] != new_data["name"]:
+            changes.append(f"name from {client['name']} to {new_data['name']}")
+            client["label"].config(text=new_data["name"])
+            client["label"].text = new_data["name"]
+        for key in ["gender", "bed", "checks", "contacts"]:
+            if client.get(key) != new_data.get(key):
+                changes.append(f"{key} changed")
+        client.update(new_data)
+        if changes:
+            self.log(f"Updated {client['name']}'s info: " + "; ".join(changes))
+        self._refresh_client_area()
+
+    def discharge_client(self, client):
+        """Remove a client from the system."""
+        label = client["label"]
+        if label.current_location:
+            self.location_contents[label.current_location].remove(label)
+            self._refresh_location(label.current_location)
+        label.destroy()
+        self.clients.remove(client)
+        self.log(f"Discharged {client['name']}")
+        self._refresh_client_area()
 
         timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self.log_text.insert(tk.END, f"[{timestamp}] {message}\n")
